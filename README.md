@@ -1,2 +1,2 @@
-# gotifierPtt
-PTT taiwan posts notify utility for Google App Engine
+# pttifier
+PTT taiwan posts notify bot for Google App Engine
