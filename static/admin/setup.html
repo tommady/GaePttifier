@@ -1,0 +1,28 @@
+{{ define "content" }}
+<div calss="container">
+  <div class="jumbotron">
+    <h3>Setup Rules</h3>
+    <form role="form" method="POST" action="/admin/setup">
+      <div class="setup-form-group">
+
+        <!-- Board -->
+        <label for="board">Board:</label>
+        <select class="form-control" name="board" id="board">
+          <option value="beauty">Beauty 表特板</option>
+          <option value="gossiping">Gossiping 八卦板</option>
+          <option value="joke">Joke 就可板</option>
+          <option value="stupidclown">StupidClown 笨板</option>
+        </select>
+
+        <!-- keywords -->
+        <label for="keyword">Keywords:</label>
+        <input type="text" class="form-control" name="keyword" id="keyword">
+      </div>
+
+      <button type="submit" class="btn btn-default">Submit</button>
+    </form>
+
+  </div>
+</div>
+
+{{ end }}
