@@ -5,6 +5,7 @@ package gaepttifer
 import (
     "html/template"
     "net/http"
+    "time"
 
     "appengine"
     "appengine/datastore"
@@ -12,8 +13,9 @@ import (
 )
 
 type Rule struct {
-    board   string
-    keyword string
+    Board   string
+    Keyword string
+    Date    time.Time
 }
 
 func init() {
@@ -22,29 +24,34 @@ func init() {
     http.HandleFunc("/admin/crawling", crawlingHandler)
 }
 
+func ruleListKey(c appengine.Context) *datastore.Key {
+    return datastore.NewKey(c, "CrawlingRules", "default_rulelist", 0, nil)
+}
+
+
 func errorHandler(w http.ResponseWriter, r *http.Request, status int, err string) {
     w.WriteHeader(status)
     page := template.Must(template.ParseFiles(
             "static/_base.html",
             "static/baseError.html",
-            ))
+    ))
 
     switch status {
     case http.StatusNotFound:
         page = template.Must(template.ParseFiles(
                 "static/_base.html",
                 "static/404.html",
-                ))
+        ))
     case http.StatusInternalServerError:
         page = template.Must(template.ParseFiles(
                 "static/_base.html",
                 "static/500.html",
-                ))
+        ))
     case http.StatusUnauthorized:
         page = template.Must(template.ParseFiles(
                 "static/_base.html",
                 "static/401.html",
-                ))
+        ))
     }
 
     if err := page.Execute(w, nil); err != nil {
@@ -62,16 +69,12 @@ func rootPageHandler(w http.ResponseWriter, r *http.Request) {
     page := template.Must(template.ParseFiles(
             "static/_base.html",
             "static/index.html",
-            ))
+    ))
 
     if err := page.Execute(w, nil); err != nil {
         errorHandler(w, r, http.StatusInternalServerError, err.Error())
         return
     }
-}
-
-func ruleList(c appengine.Context) *datastore.Key {
-    return datastore.NewKey(c, "CrawlingRules", "default_rulelist", 0, nil)
 }
 
 // Setup crawling rules, only admin user.
@@ -85,23 +88,24 @@ func setupPageHandler(w http.ResponseWriter, r *http.Request) {
     }
 
     if r.Method == "POST" {
-        rule := Rule{
-                    board:    r.FormValue("board"),
-                    keyword:  r.FormValue("keyword"),
-                    }
+        ru := Rule{
+                    Board:    r.FormValue("board"),
+                    Keyword:  r.FormValue("keyword"),
+                    Date:     time.Now(),
+        }
 
-        key := datastore.NewIncompleteKey(c, "Rules", ruleList(c))
-        if _, err := datastore.Put(c, key, &rule); err != nil {
+        key := datastore.NewIncompleteKey(c, "Rule", ruleListKey(c))
+        if _, err := datastore.Put(c, key, &ru); err != nil {
             errorHandler(w, r, http.StatusInternalServerError, err.Error())
             return
         }
-        http.Redirect(w, r, "/admin/setup", http.StatusFound)
+        http.Redirect(w, r, "/", http.StatusFound)
 
     } else if r.Method == "GET" {
         page := template.Must(template.ParseFiles(
                 "static/_base.html",
                 "static/admin/setup.html",
-                ))
+        ))
 
         if err := page.Execute(w, nil); err != nil {
             errorHandler(w, r, http.StatusInternalServerError, err.Error())
