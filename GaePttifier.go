@@ -1,35 +1,16 @@
 package gaepttifer
 
 import (
-	"fmt"
+	"appengine"
+	"appengine/user"
 	"html/template"
 	"net/http"
-	"time"
-
-	"appengine"
-	"appengine/datastore"
-	"appengine/user"
 )
-
-const (
-	ruleDbName = "RuleList"
-)
-
-type Rule struct {
-	Board    string
-	TitleKey string
-	Date     time.Time
-	Email    string
-}
 
 func init() {
 	http.HandleFunc("/", rootPageHandler)
 	http.HandleFunc("/admin/setup", setupPageHandler)
 	http.HandleFunc("/admin/crawling", crawlingHandler)
-}
-
-func ruleListKey(ctx appengine.Context) *datastore.Key {
-	return datastore.NewKey(ctx, "CrawlingRules", "default_rulelist", 0, nil)
 }
 
 func errorHandler(w http.ResponseWriter, r *http.Request, status int, err string) {
@@ -94,7 +75,6 @@ func setupPageHandler(w http.ResponseWriter, r *http.Request) {
 		rule := Rule{
 			Board:    r.FormValue("board"),
 			TitleKey: r.FormValue("title_key"),
-			Date:     time.Now(),
 		}
 
 		// Get then set login user's Email into database for crawler to send
@@ -104,11 +84,11 @@ func setupPageHandler(w http.ResponseWriter, r *http.Request) {
 			errorHandler(w, r, http.StatusInternalServerError, "")
 		}
 
-		key := datastore.NewIncompleteKey(ctx, ruleDbName, ruleListKey(ctx))
-		if _, err := datastore.Put(ctx, key, &rule); err != nil {
+		if err := rule.Set(&ctx); err != nil {
+			fmt.Fprintln(w, err)
 			errorHandler(w, r, http.StatusInternalServerError, err.Error())
-			return
 		}
+
 		http.Redirect(w, r, "/", http.StatusFound)
 
 	} else if r.Method == "GET" {
@@ -129,18 +109,14 @@ func setupPageHandler(w http.ResponseWriter, r *http.Request) {
 
 // For cron schedule to call to do the crawling jobs.
 func crawlingHandler(w http.ResponseWriter, r *http.Request) {
-	// query rules from database
 	ctx := appengine.NewContext(r)
-	q := datastore.NewQuery(ruleDbName).Ancestor(ruleListKey(ctx)).Order("-Date").Limit(10)
 
-	rules := []Rule{}
-	if _, err := q.GetAll(ctx, &rules); err != nil {
+	crawlers, err := GetAllRules(&ctx)
+	if err != nil {
 		errorHandler(w, r, http.StatusInternalServerError, err.Error())
-		return
 	}
 
-	// pass through to crawlers
-	for i := 0; i < len(rules); i++ {
-		go crawlers[i].Crawling(&rules[i])
+	for i := 0; i < len(crawlers); i++ {
+		go crawlers[i].Crawling()
 	}
 }

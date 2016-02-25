@@ -1,29 +1,55 @@
 package gaepttifer
 
 import (
-	"net/http"
-
-    "appengine"
+	"appengine"
 	"appengine/datastore"
-	"appengine/user"
-
-	"github.com/PuerkitoBio/goquery"
 )
 
 const (
+	ruleDbName         = "RuleList"
 	pttBaseUrl         = "https://www.ptt.cc/bbs/"
 	defaultParsingPage = "/index"
-    resultDbName = "ResultList"
+	resultDbName       = "ResultList"
 )
 
-type Crawler struct {
+type Rule struct {
+	Board    string
+	TitleKey string
+	Email    string
+}
+
+type Result struct {
 	Email string
 	Url   string
 	Title string
 }
 
-func resultListKey(ctx appengine.Context) *datastore.Key {
-	return datastore.NewKey(ctx, "CrawlingResults", "default_resultlist", 0, nil)
+func defaultRuleList(ctx *appengine.Context) *datastore.Key {
+	return datastore.NewKey(*ctx, "CrawlingRules", "default_rulelist", 0, nil)
+}
+
+func GetAllRules(ctx *appengine.Context) ([]Rule, error) {
+	q := datastore.NewQuery(ruleDbName).Ancestor(defaultRuleList(ctx))
+
+	rules := []Rule{}
+	if _, err := q.GetAll(*ctx, &rules); err != nil {
+		return nil, ReportError("Error: on getting rule into datastore", err)
+	}
+
+	return rules, nil
+}
+
+func (rule *Rule) Set(ctx *appengine.Context) error {
+	key := datastore.NewIncompleteKey(*ctx, ruleDbName, defaultRuleList(ctx))
+	if _, err := datastore.Put(*ctx, key, rule); err != nil {
+		return ReportError("Error: on putting rule into datastore", err)
+	}
+
+	return nil
+}
+
+func (rule *Crawler) Crawling() {
+	// doing crawling
 }
 
 // for some specific board need over 18 years old check
@@ -41,25 +67,4 @@ func getPttRespond(url string) *http.Response {
 	}
 
 	return res
-}
-
-// do the crawling job then write results into database for the email reaper to handle.
-func (crw *Crawler) Crawling(rule *Rule) {
-    ctx := appengine.NewContext(r)
-	crawlUrl := pttBaseUrl + rule.Board + defaultParsingPage
-
-	doc, err := goquery.NewDocumentFromResponse(getPttRespond(crawlUrl))
-	if err != nil {
-	    // handle error
-	}
-
-	crw.Email = rule.Email
-	crw.Url = "https://test, test"
-	crw.Title = "tsettest"
-
-    key := datastore.NewIncompleteKey(ctx, resultDbName, resultListKey(ctx))
-    if _, err := datastore.Put(ctx, key, crw); err != nil {
-        // handle error
-    }
-
 }
