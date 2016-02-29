@@ -1,10 +1,13 @@
 package gaepttifer
 
 import (
-	"appengine"
-	"appengine/user"
 	"html/template"
 	"net/http"
+
+	"appengine"
+	"appengine/user"
+
+	."github.com/tommady/pttifierLib"
 )
 
 func init() {
@@ -79,13 +82,12 @@ func setupPageHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Get then set login user's Email into database for crawler to send
 		if u := user.Current(ctx); u != nil {
-			rule.Email = u.Email
+			rule.UserInfo.Email = u.Email
 		} else {
 			errorHandler(w, r, http.StatusInternalServerError, "")
 		}
 
-		if err := rule.Set(&ctx); err != nil {
-			fmt.Fprintln(w, err)
+		if err := SetRule(&ctx, &rule); err != nil {
 			errorHandler(w, r, http.StatusInternalServerError, err.Error())
 		}
 
@@ -116,7 +118,9 @@ func crawlingHandler(w http.ResponseWriter, r *http.Request) {
 		errorHandler(w, r, http.StatusInternalServerError, err.Error())
 	}
 
-	for i := 0; i < len(crawlers); i++ {
-		go crawlers[i].Crawling()
+	resultCh := make(chan Result, len(crawlers))
+	errorCh := make(chan PttiferErr, len(crawlers))
+	for _, crawler := range crawlers {
+		go DoCrawling(&crawler, resultCh, errorCh)
 	}
 }
